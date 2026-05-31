@@ -1,0 +1,5 @@
+# add_subdirectory(AiChat)
+add_subdirectory(Device)
+add_subdirectory(Network)
+add_subdirectory(Ui)
+add_subdirectory(AiChat)
