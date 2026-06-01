@@ -1,6 +1,6 @@
 #include <QRandomGenerator>
 #include <QFont>
-#include <QGuiApplication>
+#include <QApplication>
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QListWidget>
@@ -202,6 +202,342 @@ static const QVariantMap DEFAULT_JSON = {
 //QString UiSession::moduleName = "Ui";
 //QString UiSession::name = "UiSession";
 
+void applyGlobalStyle(QVariantMap theme_, QVariantMap font_) {
+    // ==========================================
+    // 1. 基础主题色提取 (Theme Keys)
+    // ==========================================
+    QString bg = theme_.value(UiField::Background).toString();
+    QString bgUrl = theme_.value(UiField::BackgroundUrl).toString();
+    QString surface = theme_.value(UiField::Surface).toString();
+    QString border = theme_.value(UiField::Border).toString();
+    QString grid = theme_.value(UiField::Grid).toString();
+
+    QString textPri = theme_.value(UiField::TextPrimary).toString();
+    QString textSec = theme_.value(UiField::TextSecondary).toString();
+    QString textHint = theme_.value(UiField::TextHint).toString();
+
+    QString primary = theme_.value(UiField::Primary).toString();
+    QString secondary = theme_.value(UiField::Secondary).toString();
+    QString accent = theme_.value(UiField::Accent).toString();
+
+    // 状态与通知色
+    QString success = theme_.value(UiField::Success).toString();
+    QString warning = theme_.value(UiField::Warning).toString();
+    QString danger = theme_.value(UiField::Danger).toString();
+
+    // ==========================================
+    // 2. 医疗信号专用色提取 (Signal Keys)
+    // ==========================================
+    QString sigEEG = theme_.value(UiField::SignalEEG).toString();
+    QString sigECG = theme_.value(UiField::SignalECG).toString();
+    QString sigResp = theme_.value(UiField::SignalResp).toString();
+    QString sigSpO2 = theme_.value(UiField::SignalSpO2).toString();
+    QString sigBody = theme_.value(UiField::SignalBody).toString();
+    QString sigAlarm = theme_.value(UiField::SignalAlarm).toString();
+
+    // ==========================================
+    // 3. 字体配置提取 (Font Keys & Mapping Keys)
+    // ==========================================
+    QString fontFamily = font_.value(UiField::Family).toString();
+    QString fontMono = font_.value(UiField::FamilyMono).toString();
+
+    // UI 映射尺寸与字重
+    int capSize = font_.value(UiField::CaptionSize).toInt();
+    int capWeight = font_.value(UiField::CaptionWeight).toInt();
+    int bodySize = font_.value(UiField::BodySize).toInt();
+    int bodyWeight = font_.value(UiField::BodyWeight).toInt();
+    int subSize = font_.value(UiField::SubtitleSize).toInt();
+    int subWeight = font_.value(UiField::SubtitleWeight).toInt();
+    int titleSize = font_.value(UiField::TitleSize).toInt();
+    int titleWeight = font_.value(UiField::TitleWeight).toInt();
+    int monoSize = font_.value(UiField::MonospaceSize).toInt();
+    int monoWeight = font_.value(UiField::MonospaceWeight).toInt();
+
+    // ==========================================
+    // 4. 构建 QSS 样式表
+    // ==========================================
+    QString qss = lstr(
+        "QWidget {"
+        "  background-color: %1;"
+        "  color: %2;"
+        "  font-family: '%3';"
+        "}"
+        "QMainWindow, QDialog#BackgroundAware {"
+        "  background-image: url('%6');"
+        "  background-position: center;"
+        "  background-repeat: no-repeat;"
+        "}"
+        "QToolTip {"
+        "  background-color: %7;"
+        "  color: %2;"
+        "  border: 1px solid %8;"
+        "  border-radius: 4px;"
+        "  padding: 4px;"
+        "}"
+        "QMenuBar {"
+        "  background-color: %1;"
+        "  border-bottom: 1px solid %8;"
+        "}"
+        "QMenuBar::item:selected {"
+        "  background-color: %7;"
+        "}"
+        "QMenu {"
+        "  background-color: %7;"
+        "  border: 1px solid %8;"
+        "  padding: 4px;"
+        "}"
+        "QMenu::item:selected {"
+        "  background-color: %9;"
+        "  color: #FFFFFF;"
+        "}"
+        "QStatusBar {"
+        "  background-color: %1;"
+        "  border-top: 1px solid %8;"
+        "  color: %10;"
+        "}"
+
+        "QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QDateTimeEdit {"
+        "  background-color: %7;"
+        "  border: 1px solid %8;"
+        "  border-radius: 4px;"
+        "  padding: 4px 8px;"
+        "  color: %2;"
+        "}"
+        "QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QComboBox:focus {"
+        "  border: 1px solid %9;"
+        "}"
+        "QLineEdit[text=\"\"], QTextEdit[text=\"\"] {"
+        "  color: %11;"
+        "}"
+        "QComboBox {"
+        "  background-color: %7;"
+        "  border: 1px solid %8;"
+        "  border-radius: 4px;"
+        "  padding: 4px 24px 4px 8px;"
+        "}"
+        "QComboBox::drop-down {"
+        "  subcontrol-origin: padding;"
+        "  subcontrol-position: top right;"
+        "  width: 20px;"
+        "  border-left: none;"
+        "}"
+        "QComboBox QAbstractItemView {"
+        "  background-color: %7;"
+        "  border: 1px solid %8;"
+        "  selection-background-color: %9;"
+        "}"
+        "QPushButton {"
+        "  background-color: %9;"
+        "  color: #FFFFFF;"
+        "  border-radius: 4px;"
+        "  padding: 6px 14px;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: %12;"
+        "}"
+        "QPushButton:pressed {"
+        "  background-color: %9;"
+        "}"
+        "QPushButton:disabled {"
+        "  background-color: %8;"
+        "  color: %10;"
+        "}"
+        "QPushButton[type=\"secondary\"] {"
+        "  background-color: %13;"
+        "  color: %2;"
+        "  border: 1px solid %8;"
+        "}"
+        "QPushButton[type=\"secondary\"]:hover {"
+        "  background-color: %7;"
+        "}"
+        "QToolButton {"
+        "  background-color: transparent;"
+        "  border: 1px solid transparent;"
+        "  border-radius: 4px;"
+        "  padding: 4px;"
+        "}"
+        "QToolButton:hover {"
+        "  background-color: %7;"
+        "  border: 1px solid %8;"
+        "}"
+        "QCheckBox, QRadioButton {"
+        "  spacing: 8px;"
+        "}"
+        "QCheckBox::indicator, QRadioButton::indicator {"
+        "  width: 16px;"
+        "  height: 16px;"
+        "  border: 1px solid %8;"
+        "  background-color: %7;"
+        "}"
+        "QRadioButton::indicator {"
+        "  border-radius: 8px;"
+        "}"
+        "QCheckBox::indicator:checked, QRadioButton::indicator:checked {"
+        "  background-color: %9;"
+        "  border: 1px solid %9;"
+        "}"
+        "QLabel {"
+        "  background-color: transparent;"
+        "}"
+        "QLabel#CaptionLabel {"
+        "  font-size: %14px; font-weight: %15; color: %10;"
+        "}"
+        "QLabel#BodyLabel {"
+        "  font-size: %4px; font-weight: %5;"
+        "}"
+        "QLabel#SubtitleLabel {"
+        "  font-size: %16px; font-weight: %17; color: %9;"
+        "}"
+        "QLabel#TitleLabel {"
+        "  font-size: %18px; font-weight: %19;"
+        "}"
+        "            "
+        "QPlainTextEdit#MonospaceEditor, QTextEdit#MonospaceEditor {"
+        "  font-family: '%20';"
+        "  font-size: %21px;"
+        "  font-weight: %22;"
+        "}"
+        "QLabel[status=\"success\"] { color: %23; }"
+        "QLabel[status=\"warning\"] { color: %24; }"
+        "QLabel[status=\"danger\"]  { color: %25; }"
+        "QLabel[signal=\"EEG\"]  { color: %26; font-weight: bold; }"
+        "QLabel[signal=\"ECG\"]  { color: %27; font-weight: bold; }"
+        "QLabel[signal=\"Resp\"] { color: %28; font-weight: bold; }"
+        "QLabel[signal=\"SpO2\"] { color: %29; font-weight: bold; }"
+        "QLabel[signal=\"Body\"] { color: %30; font-weight: bold; }"
+        "QWidget#AlarmBar { background-color: %31; color: #FFFFFF; }"
+        "QMessageBox, QDialog {"
+        "  background-color: %1;"
+        "}"
+        "QMessageBox QLabel, QDialog QLabel {"
+        "  color: %2;"
+        "  background-color: transparent;"
+        "}"
+        "QMessageBox QPushButton, QDialog QPushButton {"
+        "  min-width: 75px;"
+        "  background-color: %7;"
+        "  color: %2;"
+        "  border: 1px solid %8;"
+        "}"
+        "QMessageBox QPushButton:hover, QDialog QPushButton:hover {"
+        "  background-color: %9;"
+        "  color: #FFFFFF;"
+        "}"
+        "QScrollArea, QStackedWidget {"
+        "  border: none;"
+        "  background-color: transparent;"
+        "}"
+        "QTabWidget::pane {"
+        "  border: 1px solid %8;"
+        "  background-color: %1;"
+        "}"
+        "QTabBar::tab {"
+        "  background-color: %7;"
+        "  border: 1px solid %8;"
+        "  border-bottom: none;"
+        "  padding: 6px 16px;"
+        "  border-top-left-radius: 4px;"
+        "  border-top-right-radius: 4px;"
+        "}"
+        "QTabBar::tab:selected {"
+        "  background-color: %1;"
+        "  border-bottom: 1px solid %1;"
+        "}"
+        "QListWidget, QTreeWidget, QTableWidget, QTreeView, QTableView {"
+        "  background-color: %7;"
+        "  border: 1px solid %8;"
+        "  gridline-color: %32;"
+        "}"
+        "QAbstractItemView::item {"
+        "  padding: 4px;"
+        "}"
+        "QAbstractItemView::item:selected {"
+        "  background-color: %9;"
+        "  color: #FFFFFF;"
+        "}"
+        "QHeaderView::section {"
+        "  background-color: %1;"
+        "  color: %10;"
+        "  padding: 4px;"
+        "  border: 1px solid %8;"
+        "}"
+        "QProgressBar {"
+        "  border: 1px solid %8;"
+        "  border-radius: 4px;"
+        "  text-align: center;"
+        "  background-color: %7;"
+        "}"
+        "QProgressBar::chunk {"
+        "  background-color: %9;"
+        "  width: 10px;"
+        "}"
+        "QSlider::groove:horizontal {"
+        "  border: 1px solid %8;"
+        "  height: 6px;"
+        "  background: %7;"
+        "  border-radius: 3px;"
+        "}"
+        "QSlider::handle:horizontal {"
+        "  background: %9;"
+        "  width: 14px;"
+        "  margin: -4px 0;"
+        "  border-radius: 7px;"
+        "}"
+        "QScrollBar:vertical, QScrollBar:horizontal {"
+        "  background-color: %1;"
+        "  margin: 0px;"
+        "}"
+        "QScrollBar:vertical { width: 10px; }"
+        "QScrollBar:horizontal { height: 10px; }"
+        "QScrollBar::handle:vertical, QScrollBar::handle:horizontal {"
+        "  background-color: %8;"
+        "  border-radius: 5px;"
+        "}"
+        "QScrollBar::handle:vertical { min-height: 20px; }"
+        "QScrollBar::handle:horizontal { min-width: 20px; }"
+        "QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {"
+        "  background-color: %9;"
+        "}"
+        "QScrollBar::add-line, QScrollBar::sub-line, QScrollBar::add-page, QScrollBar::sub-page {"
+        "  background: none; width: 0px; height: 0px;"
+        "}"
+    )
+        .arg(bg)             // %1
+        .arg(textPri)        // %2
+        .arg(fontFamily)     // %3
+        .arg(bodySize)       // %4
+        .arg(bodyWeight)     // %5
+        .arg(bgUrl)          // %6
+        .arg(surface)        // %7
+        .arg(border)         // %8
+        .arg(primary)        // %9
+        .arg(textSec)        // %10
+        .arg(textHint)       // %11
+        .arg(accent)         // %12
+        .arg(secondary)      // %13
+        .arg(capSize)        // %14
+        .arg(capWeight)      // %15
+        .arg(subSize)        // %16
+        .arg(subWeight)      // %17
+        .arg(titleSize)      // %18
+        .arg(titleWeight)    // %19
+        .arg(fontMono)       // %20
+        .arg(monoSize)       // %21
+        .arg(monoWeight)     // %22
+        .arg(success)        // %23
+        .arg(warning)        // %24
+        .arg(danger)         // %25
+        .arg(sigEEG)         // %26
+        .arg(sigECG)         // %27
+        .arg(sigResp)        // %28
+        .arg(sigSpO2)        // %29
+        .arg(sigBody)        // %30
+        .arg(sigAlarm)       // %31
+        .arg(grid);          // %32
+
+    qApp->setStyleSheet(qss);
+}
+
 static auto configuration() {
     bool setToDefault = false;
     QVariantMap map;
@@ -282,7 +618,7 @@ Impl::Impl()
     page->appendWidget(new ThemeFontCard(page));
 
     this->mainWin_ = new MainWindow(this);
-    
+    applyGlobalStyle(theme_, font_);
 }
 
 Impl::~Impl() {
@@ -378,12 +714,15 @@ void Impl::setTheme(QVariantMap which) {
             break;
         else
             index++;
+
+    applyGlobalStyle(this->theme_, this->font_);
     Configuration::instance().set(Field::LAST_THEME, index);
 }
 
 void Impl::setFont(QVariantMap value) {
     font_ = value;
     emit this->fontChanged();
+    applyGlobalStyle(this->theme_, this->font_);
     Configuration::instance().set(Field::FONT, this->font_);
 }
 

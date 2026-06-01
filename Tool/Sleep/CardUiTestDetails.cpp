@@ -1,3 +1,4 @@
+#include <ctime>
 #include <QScrollArea>
 #include <QMenu>
 #include <QWidgetAction>
@@ -5,8 +6,7 @@
 #include <QScroller>
 #include <QDataStream>
 #include <QDateTime>
-#include <cstdlib>
-#include <ctime>
+#include <QMessageBox>
 
 #include "Core/Utils.hpp"
 #include "Driver/UiTest/Driver.hpp"
@@ -16,11 +16,11 @@
 #include "CardUiTestDetails.hpp"
 
 // 为自定义的 StageData 结构提供数据流序列化操作符
-inline QDataStream& operator<<(QDataStream& out, const StageData& data) {
+static QDataStream& operator<<(QDataStream& out, const StageData& data) {
 	out << data.stageIndex << data.startDuration << data.persistDuration;
 	return out;
 }
-inline QDataStream& operator>>(QDataStream& in, StageData& data) {
+static QDataStream& operator>>(QDataStream& in, StageData& data) {
 	in >> data.stageIndex >> data.startDuration >> data.persistDuration;
 	return in;
 }
@@ -182,6 +182,10 @@ void SleepBaseCard::onThemeChanged() {
 	updateThemeStyles(theme, font);
 }
 
+
+
+
+
 SleepStagingCard::SleepStagingCard(QWidget* parent) : SleepBaseCard(lstr("睡眠分期"), parent) {
 	this->addView(stagingWidget_ = new StagingWidget(this));
 	this->addView(pieChartWidget_ = new PieChartWidget(this));
@@ -190,7 +194,7 @@ SleepStagingCard::SleepStagingCard(QWidget* parent) : SleepBaseCard(lstr("睡眠
 
 void SleepStagingCard::setData(const QList<StageData>& stageData, const QList<qreal>& piePercentages) {
 	stagingWidget_->setData(stageData);
-	if (pieChartWidget_->count() >= piePercentages.size()) {
+	if (!piePercentages.isEmpty()) {
 		pieChartWidget_->setData(piePercentages);
 	}
 }
@@ -208,6 +212,10 @@ void SleepStagingCard::updateThemeStyles(const QVariantMap& theme, const QVarian
 	stagingWidget_->setBarColors({ eegColor, primary, accent });
 	pieChartWidget_->update();
 }
+
+
+
+
 
 RespiratoryEventsCard::RespiratoryEventsCard(QWidget* parent)
 	: SleepBaseCard(lstr("呼吸事件"), parent) {
@@ -246,13 +254,18 @@ SpO2TrendCard::SpO2TrendCard(QWidget* parent) : SleepBaseCard(lstr("血氧趋势
 	this->onThemeChanged();
 }
 
+
+
 void SpO2TrendCard::setData(const QList<QPointF>& trendPoints, const QList<qreal>& distributionPercentages) {
+	auto ui = UiSession::instance()->theme();
 	waveformWidget_->clearCurves();
-	waveformWidget_->addCurve(trendPoints, Qt::cyan, 2.0);
-	if (pieChartWidget_->count() >= distributionPercentages.size()) {
+	waveformWidget_->addCurve(trendPoints, ui.value(UiField::SignalSpO2).toString(), 2.0);
+	if (!distributionPercentages.isEmpty()) {
 		pieChartWidget_->setData(distributionPercentages);
 	}
 }
+
+
 
 void SpO2TrendCard::updateThemeStyles(const QVariantMap& theme, const QVariantMap&) {
 	QColor spo2Color = getColorFrom(theme, UiField::SignalSpO2, QColor(0, 230, 230));
@@ -274,7 +287,7 @@ BodyPositionCard::BodyPositionCard(QWidget* parent) : SleepBaseCard(lstr("体位
 
 void BodyPositionCard::setData(const QList<StageData>& positionData, const QList<qreal>& piePercentages) {
 	stagingWidget_->setData(positionData);
-	if (pieChartWidget_->count() >= piePercentages.size()) {
+	if (!piePercentages.isEmpty()) {
 		pieChartWidget_->setData(piePercentages);
 	}
 }
@@ -295,6 +308,10 @@ void BodyPositionCard::updateThemeStyles(const QVariantMap& theme, const QVarian
 	stagingWidget_->setYLabel({ lstr("左侧"), lstr("俯卧"), lstr("右侧"), lstr("仰卧") });
 	pieChartWidget_->setEnableBackground(false);
 }
+
+
+
+
 
 SleepDashboardWidget::SleepDashboardWidget(QWidget* parent) : QWidget(parent) {
 	std::srand(static_cast<unsigned int>(std::time(nullptr)));
@@ -361,10 +378,10 @@ SleepDashboardWidget::SleepDashboardWidget(QWidget* parent) : QWidget(parent) {
 	scrollContainer->setObjectName("scrollContainer");
 
 	QScroller::grabGesture(scrollArea, QScroller::LeftMouseButtonGesture);
-
 	QScrollerProperties properties = QScroller::scroller(scrollArea)->scrollerProperties();
-	properties.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy, QScrollerProperties::OvershootAlwaysOn);
-	QScroller::scroller(scrollArea)->setScrollerProperties(properties);
+	// properties.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy, QScrollerProperties::OvershootAlwaysOn);
+	// properties.setScrollMetric(QScrollerProperties::Inver, true);
+	// QScroller::scroller(scrollArea)->setScrollerProperties(properties);
 
 	auto* hLayout = new QHBoxLayout(scrollContainer);
 	hLayout->setContentsMargins(0, 0, 0, 0);
@@ -396,6 +413,18 @@ SleepDashboardWidget::SleepDashboardWidget(QWidget* parent) : QWidget(parent) {
 
 	if (auto* driver = UITestModule::instance()) {
 		connect(driver, &UITestModule::readResponded, this, &SleepDashboardWidget::onReadResponded);
+		connect(driver, &UITestModule::errorOccured, this, [this](QString id, QString message) {
+			qCritical() << lstr("[UiTest ToolSleep ERROR] Device Error [ID: %1]: %2").arg(id, message);
+
+			QMessageBox::critical(this,
+				lstr("设备错误"),
+				lstr("测量过程中发生设备异常！\n\n设备ID: %1\n错误信息: %2").arg(id, message)
+			);
+
+			if (switchEnabledBtn_ && switchEnabledBtn_->isChecked()) {
+				switchEnabledBtn_->setChecked(false);
+			}
+		});
 	}
 
 	if (UiSession::instance()) {
@@ -409,6 +438,7 @@ SleepDashboardWidget::SleepDashboardWidget(QWidget* parent) : QWidget(parent) {
 	respiratoryCard_->setViewState(false, false);
 	spo2Card_->setViewState(false, false);
 	bodyPositionCard_->setViewState(false, false);
+
 }
 
 void SleepDashboardWidget::onThemeChanged() {
@@ -553,7 +583,6 @@ void SleepDashboardWidget::onEnabledToggled(bool checked) {
 	if (!driver) return;
 
 	if (checked) {
-		// 全量清空之前对话的历史上下文
 		stagingHistory_.clear();
 		spo2TrendPoints_.clear();
 		positionHistory_.clear();
@@ -566,21 +595,25 @@ void SleepDashboardWidget::onEnabledToggled(bool checked) {
 		currentRespTime_ = 0.0;
 		timeIndex_ = 0;
 
-		// 启动测量状态：将卡片切换至实时渲染视图（视图1），此时无历史统计
 		stagingCard_->setViewState(true, false);
 		respiratoryCard_->setViewState(true, false);
 		spo2Card_->setViewState(true, false);
 		bodyPositionCard_->setViewState(true, false);
 
+		lastEnabledChannels_ = 0;
+		if (bodyPositionCard_->checked()) lastEnabledChannels_ |= (1 << 0);
+		if (spo2Card_->checked())         lastEnabledChannels_ |= (1 << 1);
+		if (stagingCard_->checked())      lastEnabledChannels_ |= (1 << 2);
+		if (respiratoryCard_->checked())  lastEnabledChannels_ |= (1 << 3) | (1 << 4);
+
 		QByteArray cmd;
 		cmd.append(static_cast<char>(15));
-		cmd.append(static_cast<char>(0x1F));
-		cmd.append(static_cast<char>(0));
+		cmd.append(lastEnabledChannels_);
+		cmd.append(static_cast<char>(0)); // for safety.
 		driver->write(deviceId_, DeviceField::UiTest::RequestSample, cmd);
 
 		pollTimer_->start(250);
-	}
-	else {
+	} else {
 		pollTimer_->stop();
 
 		QByteArray cmd;
@@ -591,7 +624,7 @@ void SleepDashboardWidget::onEnabledToggled(bool checked) {
 
 		bool hasData = !stagingHistory_.isEmpty() || !spo2TrendPoints_.isEmpty() || !positionHistory_.isEmpty() || !apneaHistory_.isEmpty();
 		if (hasData) {
-			// === 1. 停止后统一进行睡眠分期图表结算统计 ===
+			// === 1. 睡眠分期图表结算统计 ===
 			qreal c0 = 0, c1 = 0, c2 = 0;
 			for (const auto& item : stagingHistory_) {
 				if (item.stageIndex == 0) c0++;
@@ -650,18 +683,18 @@ void SleepDashboardWidget::onEnabledToggled(bool checked) {
 					}
 				}
 				return destHistory;
-				};
+			};
 
 			QList<QList<StageData>> eventDataList;
 			eventDataList.append(getAdjustedViewportHistory(apneaHistory_));
 			eventDataList.append(getAdjustedViewportHistory(obstructiveHistory_));
 			eventDataList.append(getAdjustedViewportHistory(centralHistory_));
 
-			QList<QList<qreal>> barValues = { { (qreal)normalCount_, (qreal)hypopneaCount_, (qreal)apneaCount_ } };
+			QList<QList<qreal>> barValues = { { qreal(normalCount_), qreal(hypopneaCount_), qreal(apneaCount_) } };
 			QList<QList<QString>> barLabels = { { lstr("正常呼吸"), lstr("低通气"), lstr("呼吸暂停") } };
 			respiratoryCard_->setData(eventDataList, barValues, barLabels);
 
-			// 本地持久化归档（仅存储，不执行向外的网络数据上传）
+			// 本地持久化归档
 			auto time = QDateTime::currentDateTime();
 			auto userId = NetworkSession::instance()->userId();
 			auto idfile = userId + time.toString("yyyy.MM.dd:hh.mm");
@@ -681,7 +714,6 @@ void SleepDashboardWidget::onEnabledToggled(bool checked) {
 			driver->writeRecordFile(idfile, idfile + ".z", compressedPayload);
 		}
 
-		// 更新卡片状态显示，切换到报告统计汇总图表界面（视图2）
 		stagingCard_->setViewState(false, hasData);
 		respiratoryCard_->setViewState(false, hasData);
 		spo2Card_->setViewState(false, hasData);
@@ -693,11 +725,34 @@ void SleepDashboardWidget::pollDeviceData() {
 	auto* driver = UITestModule::instance();
 	if (!driver) return;
 
-	driver->read(deviceId_, 0x01, {});
-	driver->read(deviceId_, 0x02, {});
-	driver->read(deviceId_, 0x03, {});
-	driver->read(deviceId_, 0x04, {});
-	driver->read(deviceId_, 0x05, {});
+	quint8 currentMask = 0;
+	if (bodyPositionCard_->checked()) currentMask |= (1 << 0);
+	if (spo2Card_->checked())         currentMask |= (1 << 1);
+	if (stagingCard_->checked())      currentMask |= (1 << 2);
+	if (respiratoryCard_->checked())  currentMask |= (1 << 3) | (1 << 4);
+
+	if (currentMask != lastEnabledChannels_) {
+		lastEnabledChannels_ = currentMask;
+		QByteArray cmd;
+		cmd.append(static_cast<char>(15)); // 保持 15Hz 采样率
+		cmd.append(static_cast<char>(lastEnabledChannels_));
+		cmd.append(static_cast<char>(0));
+		driver->write(deviceId_, DeviceField::UiTest::RequestSample, cmd);
+	}
+
+	if (bodyPositionCard_->checked()) {
+		driver->read(deviceId_, 0x01, {});
+	}
+	if (spo2Card_->checked()) {
+		driver->read(deviceId_, 0x02, {});
+	}
+	if (stagingCard_->checked()) {
+		driver->read(deviceId_, 0x03, {});
+	}
+	if (respiratoryCard_->checked()) {
+		driver->read(deviceId_, 0x04, {});
+		driver->read(deviceId_, 0x05, {});
+	}
 }
 
 void SleepDashboardWidget::onReadResponded(int id, int serialCode, QByteArray arr, QByteArray responseData) {
@@ -750,7 +805,6 @@ void SleepDashboardWidget::processSpO2Data(const int16_t* samples, int count) {
 	spo2TrendPoints_.append(QPointF(timeIndex_, spo2));
 	if (spo2TrendPoints_.size() > 50) spo2TrendPoints_.removeFirst();
 
-	// 运行时只渲染动态波形，饼图百分比传入占位初始值以解耦
 	spo2Card_->setData(spo2TrendPoints_, { 0.0, 0.0, 0.0 });
 }
 
@@ -829,7 +883,6 @@ void SleepDashboardWidget::processRespiratoryData(const int16_t* samples, int co
 	eventDataList.append(getAdjustedViewportHistory(obstructiveHistory_));
 	eventDataList.append(getAdjustedViewportHistory(centralHistory_));
 
-	// 运行时只渲染动态事件块视图，统计柱状图暂留空
 	respiratoryCard_->setData(eventDataList, {}, {});
 }
 
@@ -854,7 +907,6 @@ void SleepDashboardWidget::processSleepStagingData(const int16_t* samples, int c
 		currentStart += 1.0;
 	}
 
-	// 运行时只更新轨迹图，结算占比留空
 	stagingCard_->setData(stagingHistory_, { 0.0, 0.0, 0.0 });
 }
 

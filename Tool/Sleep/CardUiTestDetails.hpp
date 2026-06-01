@@ -174,4 +174,6 @@ private:
     int timeIndex_ = 0;
     int deviceId_ = 0;
     QTimer* pollTimer_ = nullptr;
+
+    quint8 lastEnabledChannels_ = 0;
 };

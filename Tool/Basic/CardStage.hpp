@@ -12,19 +12,18 @@ struct StageData {
     qreal persistDuration = -1.;
 };
 
-// 单个 Stage 序列小部件.
-// Require each stageData can be connected. 
-// (fronter one's startDuration + persistDuration == next's startDuration)
-// if data have any gap, the behavior is undefined.
-class 
+// require startDuration + persistDuration == next one's startDuration.
+class
 #if defined(RINGAPP_TOOL_BASIC_EXPORT)
     Q_DECL_EXPORT
 #else 
     Q_DECL_IMPORT
 #endif
-StagingWidget : public QWidget {
+StagingWidget: public QWidget{
     Q_OBJECT;
     Q_PROPERTY(QColor axisColor READ axisColor WRITE setAxisColor);
+    Q_PROPERTY(QColor xLabelColor READ xLabelColor WRITE setXLabelColor);
+    Q_PROPERTY(QColor yLabelColor READ yLabelColor WRITE setYLabelColor);
     Q_PROPERTY(bool enableYAxis READ enableYAxis WRITE setEnableYAxis);
     Q_PROPERTY(bool enableYLabel READ enableYLabel WRITE setEnableYLabel);
     Q_PROPERTY(bool enableXLabel READ enableXLabel WRITE setEnableXLabel);
@@ -56,7 +55,11 @@ public:
 
     void setXLabel(QList<QString> labels);
     void setYLabel(QList<QString> labels);
+
+    QColor xLabelColor() const { return xLabelColor_; }
     void setXLabelColor(QColor color);
+
+    QColor yLabelColor() const { return yLabelColor_; }
     void setYLabelColor(QColor color);
 
 signals:
@@ -84,7 +87,6 @@ private:
     QList<QString> xLabels_;
     QList<QColor> barColors_;
 
-    QColor backgroundColor_ = Qt::transparent;
     QColor xLabelColor_ = QColor(180, 180, 180, 120);
     QColor yLabelColor_ = QColor(180, 180, 180, 120);
     QColor axisColor_ = QColor(180, 180, 180, 120);
@@ -94,21 +96,29 @@ private:
     bool enableXLabel_ = true;
     bool enableXAxis_ = true;
     bool barClickable_ = true;
-    bool enableBackground_ = false; // 默认不绘制背景
 
     qreal barWidth_ = 25.;
     qreal maxDuration_ = -1.0;
 };
 
-// 多组事件并发或对比小部件
 class
 #if defined(RINGAPP_TOOL_BASIC_EXPORT)
     Q_DECL_EXPORT
 #else 
     Q_DECL_IMPORT
 #endif
-EventWidget : public QWidget{
+EventWidget: public QWidget{
     Q_OBJECT;
+    Q_PROPERTY(QColor axisColor READ axisColor WRITE setAxisColor);
+    Q_PROPERTY(QColor xLabelColor READ xLabelColor WRITE setXLabelColor);
+    Q_PROPERTY(QColor yLabelColor READ yLabelColor WRITE setYLabelColor);
+    Q_PROPERTY(qreal barWidth READ barWidth WRITE setBarWidth);
+    Q_PROPERTY(bool enableXAxis READ enableXAxis WRITE setEnableXAxis);
+    Q_PROPERTY(bool enableYAxis READ enableYAxis WRITE setEnableYAxis);
+    Q_PROPERTY(bool enableXLabel READ enableXLabel WRITE setEnableXLabel);
+    Q_PROPERTY(bool enableYLabel READ enableYLabel WRITE setEnableYLabel);
+    Q_PROPERTY(bool barClickable READ barClickable WRITE setBarClickable);
+
 public:
     explicit EventWidget(QWidget* parent = nullptr);
 
@@ -116,10 +126,35 @@ public:
     void setXLabels(const QList<QString>& labels);
     void setYLabels(const QList<QString>& labels);
 
+    qreal barWidth() const { return barWidth_; }
     void setBarWidth(qreal width);
     void setMaxDuration(qreal duration);
+
     void setAxesEnabled(bool x, bool y);
     void setLabelsEnabled(bool x, bool y);
+
+    QColor axisColor() const { return axisColor_; }
+    void setAxisColor(const QColor& color);
+
+    QColor xLabelColor() const { return xLabelColor_; }
+    void setXLabelColor(const QColor& color);
+
+    QColor yLabelColor() const { return yLabelColor_; }
+    void setYLabelColor(const QColor& color);
+
+    bool enableXAxis() const { return enableXAxis_; }
+    void setEnableXAxis(bool enable);
+
+    bool enableYAxis() const { return enableYAxis_; }
+    void setEnableYAxis(bool enable);
+
+    bool enableXLabel() const { return enableXLabel_; }
+    void setEnableXLabel(bool enable);
+
+    bool enableYLabel() const { return enableYLabel_; }
+    void setEnableYLabel(bool enable);
+
+    bool barClickable() const { return barClickable_; }
     void setBarClickable(bool clickable);
 
 signals:
@@ -149,7 +184,6 @@ private:
     QList<QString> yLabels_;
     QList<QString> xLabels_;
 
-    QColor backgroundColor_ = Qt::transparent;
     QColor xLabelColor_ = QColor(180, 180, 180);
     QColor yLabelColor_ = QColor(180, 180, 180);
     QColor axisColor_ = QColor(180, 180, 180);
@@ -159,7 +193,6 @@ private:
     bool enableXLabel_ = true;
     bool enableXAxis_ = true;
     bool barClickable_ = true;
-    bool enableBackground_ = false; // 默认不绘制背景
 
     qreal barWidth_ = 25;
     qreal maxDuration = -1.0;

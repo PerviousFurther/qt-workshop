@@ -4,6 +4,7 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QResizeEvent>
+#include <QStyleOption> // 新增：支持样式表属性刷新
 #include <cmath>
 #include <limits>
 #include <algorithm>
@@ -19,7 +20,7 @@ namespace {
 // ============================================================================
 AbstractWaveformWidget::AbstractWaveformWidget(QWidget* parent) : QWidget(parent) {
     this->setAutoFillBackground(false);
-    this->setAttribute(Qt::WA_OpaquePaintEvent, false);
+    // this->setAttribute(Qt::WA_OpaquePaintEvent, false);
     this->setAttribute(Qt::WA_TranslucentBackground, true);
     this->setMouseTracking(true);
 }
@@ -119,13 +120,41 @@ void AbstractWaveformWidget::setTitle(const QString& title) {
 }
 
 void AbstractWaveformWidget::setBorderColor(const QColor& color) {
-    borderColor_ = color;
-    update();
+    if (borderColor_ != color) {
+        borderColor_ = color;
+        enableBorder_ = true;
+        update();
+    }
 }
 
 void AbstractWaveformWidget::setCornerRadius(qreal radius) {
-    cornerRadius_ = qMax(0.0, radius);
-    update();
+    qreal validRadius = qMax(0.0, radius);
+    if (!qFuzzyCompare(cornerRadius_, validRadius)) {
+        cornerRadius_ = validRadius;
+        update();
+    }
+}
+
+void AbstractWaveformWidget::setBackgroundColor(const QColor& background) {
+    if (bkgColor_ != background) {
+        bkgColor_ = background;
+        enableBackground_ = true;
+        update();
+    }
+}
+
+void AbstractWaveformWidget::setGridColor(const QColor& color) {
+    if (gridColor_ != color) {
+        gridColor_ = color;
+        update();
+    }
+}
+
+void AbstractWaveformWidget::setTextColor(const QColor& color) {
+    if (textColor_ != color) {
+        textColor_ = color;
+        update();
+    }
 }
 
 void AbstractWaveformWidget::selectCurve(qsizetype index) {
@@ -182,6 +211,9 @@ QPointF AbstractWaveformWidget::mapToScene(const QPoint& widgetPos, qsizetype cu
 }
 
 void AbstractWaveformWidget::paintEvent(QPaintEvent*) {
+    QStyleOption opt;
+    opt.initFrom(this);
+
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
 
@@ -294,7 +326,6 @@ void HistoryWaveformWidget::updatePlotRect() {
     int activeAxes = 0;
     for (qsizetype i = 0; i < curveVisibility_.size(); ++i) { if (curveVisibility_[i]) activeAxes++; }
 
-    // 优化：压缩间距，单坐标轴只需要保留 45 像素，多轴递增缩减至 25 像素
     int leftMargin = (activeAxes > 0) ? (45 + 25 * (activeAxes - 1)) : 25;
     int bottomMargin = (activeAxes > 0) ? (35 + 25 * (activeAxes - 1)) : 35;
     int topMargin = title_.isEmpty() ? 25 : 45;
@@ -334,12 +365,10 @@ void HistoryWaveformWidget::drawCustomAxes(QPainter& painter) {
         color.setAlpha(120);
         painter.setPen(QPen(color, 1.2));
 
-        // 1. 紧凑型 Y 轴绘制位置
         int currentXAxisOffset = plotRect_.left() - 25 * (activeAxes - 1 - axisOffset);
         painter.drawLine(currentXAxisOffset, plotRect_.top(), currentXAxisOffset, plotRect_.bottom());
         painter.drawText(currentXAxisOffset - 10, plotRect_.top() - 8, QString("Y%1").arg(i));
 
-        // 绘制 Y 轴 Label 刻度数字
         for (quint32 j = 0; j <= yStep_; ++j) {
             int y = plotRect_.top() + (plotRect_.height() * j) / yStep_;
             painter.drawLine(currentXAxisOffset, y, currentXAxisOffset - 4, y);
@@ -351,12 +380,10 @@ void HistoryWaveformWidget::drawCustomAxes(QPainter& painter) {
             painter.drawText(textR, Qt::AlignRight | Qt::AlignVCenter, label);
         }
 
-        // 2. 紧凑型 X 轴绘制位置
         int currentYAxisOffset = plotRect_.bottom() + 25 * (activeAxes - 1 - axisOffset);
         painter.drawLine(plotRect_.left(), currentYAxisOffset, plotRect_.right(), currentYAxisOffset);
         painter.drawText(plotRect_.right() + 8, currentYAxisOffset + 4, QString("X%1").arg(i));
 
-        // 绘制 X 轴 Label 刻度数字
         for (quint32 j = 0; j <= xStep_; ++j) {
             int x = plotRect_.left() + (plotRect_.width() * j) / xStep_;
             painter.drawLine(x, currentYAxisOffset, x, currentYAxisOffset + 4);
@@ -364,7 +391,6 @@ void HistoryWaveformWidget::drawCustomAxes(QPainter& painter) {
             qreal val = viewXMin_[i] + (j * (viewXMax_[i] - viewXMin_[i]) / xStep_);
             QString label = QString::number(val, 'g', 4);
 
-            // 居中对齐文字到刻度线下方
             QRectF textR(x - 20, currentYAxisOffset + 6, 40, 12);
             painter.drawText(textR, Qt::AlignCenter, label);
         }
@@ -418,7 +444,6 @@ void RecordWaveformWidget::updatePlotRect() {
     int activeAxes = 0;
     for (qsizetype i = 0; i < curveVisibility_.size(); ++i) { if (curveVisibility_[i]) activeAxes++; }
 
-    // 优化：缩减 Record 视图的多 Y 轴间距至 25
     int leftMargin = (activeAxes > 0) ? (45 + 25 * (activeAxes - 1)) : 45;
     int topMargin = title_.isEmpty() ? 20 : 40;
 
@@ -499,27 +524,23 @@ void RecordWaveformWidget::drawCustomAxes(QPainter& painter) {
     axisFont.setPointSize(8);
     painter.setFont(axisFont);
 
-    // 1. 绘制公用的时间 X 轴 (底端一条)
     painter.setPen(QPen(textColor_, 1.2));
     painter.drawLine(plotRect_.left(), plotRect_.bottom(), plotRect_.right(), plotRect_.bottom());
     painter.drawText(plotRect_.right() + 8, plotRect_.bottom() + 4, "Time(s)");
 
-    // 绘制 X 轴公用 Label
     if (data_.size() > 0) {
         for (quint32 j = 0; j <= xStep_; ++j) {
             int x = plotRect_.left() + (plotRect_.width() * j) / xStep_;
             painter.drawLine(x, plotRect_.bottom(), x, plotRect_.bottom() + 4);
 
-            // 以第一条可见曲线的 ViewX 范围作为时间基准
             qreal val = viewXMin_[0] + (j * (viewXMax_[0] - viewXMin_[0]) / xStep_);
-            QString label = QString::number(val, 'f', 1); // 时间保留一位小数
+            QString label = QString::number(val, 'f', 1);
 
             QRectF textR(x - 20, plotRect_.bottom() + 6, 40, 12);
             painter.drawText(textR, Qt::AlignCenter, label);
         }
     }
 
-    // 2. 依次绘制多 Y 轴以及它们各自的 Labels
     int axisOffset = 0;
     for (qsizetype i = 0; i < data_.size(); ++i) {
         if (!curveVisibility_[i]) continue;

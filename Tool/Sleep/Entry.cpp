@@ -26,11 +26,15 @@ ToolSleep::ToolSleep()
     auto ui = uiSession();
     auto uitest = UITestModule::instance();
     this->detailCards_ = new SleepDashboardWidget;
+    this->pageSleep_ = new PSGSummaryCard;
+    // this->pageSleep_ = new PSGMainPage;
+    
     // this->cardIds_.append(ui->home()->appendWidget(card));
     connect(uitest, &UITestModule::deviceConnected, this, [ui, uitest, this]() {
-        auto card = new PSGSummaryCard;
-        this->cardIds_.append(ui->home()->appendWidget(new PSGSummaryCard));
+        auto card = static_cast<PSGSummaryCard*>(this->pageSleep_);
+        this->cardIds_.append(ui->home()->appendWidget(card));
         connect(card, &PSGSummaryCard::clicked, this, [ui, this]() {
+            qInfo() << "enter psg main page.";
             ui->push(new PSGMainPage);
         });
         connect(uitest, &UITestModule::deviceConnectionError, this, [ui, card, this](int, int code, QString msg) {

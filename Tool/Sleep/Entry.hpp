@@ -33,6 +33,7 @@ private:
 	QStringList availbleDevices_;
 	QList<qsizetype> cardIds_;
 	QWidget* detailCards_ = nullptr;
+	QWidget* pageSleep_ = nullptr;
 };
 
 

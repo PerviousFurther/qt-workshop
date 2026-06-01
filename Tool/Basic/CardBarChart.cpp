@@ -5,7 +5,12 @@ BarChartWidget::BarChartWidget(QWidget* parent) : QWidget(parent) {
     this->setAutoFillBackground(false);
     this->setAttribute(Qt::WA_Hover, true);
     this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    this->backgroundColor_ = QColor(245, 245, 245);
+    this->backgroundColor_ = QColor(245, 245, 245, 120);
+}
+
+QRectF BarChartWidget::getChartRect() const {
+    QRectF crect = contentsRect();
+    return QRectF(crect.left() + 40, crect.top() + 20, crect.width() - 60, crect.height() - 50);
 }
 
 void BarChartWidget::setData(const QList<QList<qreal>>& values, const QList<QList<QString>>& labels) {
@@ -34,6 +39,38 @@ void BarChartWidget::setGaps(qreal seriesGap, qreal internalGap) {
     seriesInteralGap_ = internalGap;
     this->updateBarGeometry();
     this->update();
+}
+
+void BarChartWidget::setSeriesGap(qreal gap) {
+    if (seriesGap_ != gap) {
+        seriesGap_ = gap;
+        this->updateBarGeometry();
+        this->update();
+    }
+}
+
+void BarChartWidget::setSeriesInternalGap(qreal gap) {
+    if (seriesInteralGap_ != gap) {
+        seriesInteralGap_ = gap;
+        this->updateBarGeometry();
+        this->update();
+    }
+}
+
+void BarChartWidget::setYMin(qreal yMin) {
+    if (yMin_ != yMin && yMin < yMax_) {
+        yMin_ = yMin;
+        this->updateBarGeometry();
+        this->update();
+    }
+}
+
+void BarChartWidget::setYMax(qreal yMax) {
+    if (yMax_ != yMax && yMax > yMin_) {
+        yMax_ = yMax;
+        this->updateBarGeometry();
+        this->update();
+    }
 }
 
 void BarChartWidget::setEnableBackground(bool enable) {
@@ -99,7 +136,7 @@ void BarChartWidget::updateBarGeometry() {
     }
     if (numCategories == 0) return;
 
-    QRectF chartRect(40, 20, width() - 60, height() - 50);
+    QRectF chartRect = getChartRect();
 
     qreal totalGaps = (numCategories - 1) * seriesGap_ + numCategories * (numSeries - 1) * seriesInteralGap_;
     qreal barWidth = (chartRect.width() - totalGaps) / (numCategories * numSeries);
@@ -127,13 +164,18 @@ void BarChartWidget::updateBarGeometry() {
 }
 
 void BarChartWidget::paintEvent(QPaintEvent* /*event*/) {
+    // 核心修改：利用 QStyleOption 渲染样式表规定的背景、边框、圆角等
+    QStyleOption opt;
+    opt.initFrom(this);
     QPainter painter(this);
+    style()->drawPrimitive(QStyle::PE_Widget, &opt, &painter, this);
+
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setFont(this->font());
 
-    QRectF chartRect(40, 20, width() - 60, height() - 50);
+    QRectF chartRect = getChartRect();
 
-    // 1. 绘制图表背景
+    // 1. 绘制内部图表背景
     if (enableBackground_) {
         painter.setPen(Qt::NoPen);
         painter.setBrush(backgroundColor_);
@@ -259,7 +301,6 @@ void BarChartWidget::paintEvent(QPaintEvent* /*event*/) {
                     labelStr = QString::number(c + 1);
                 }
 
-                // 在当前组柱状图正下方的空白区域居中绘制文本
                 QRectF labelRect(minX, chartRect.bottom() + 8, maxX - minX, 20);
                 painter.drawText(labelRect, Qt::AlignCenter, labelStr);
             }
@@ -273,7 +314,7 @@ void BarChartWidget::mousePressEvent(QMouseEvent* event) {
         return;
     }
 
-    QRectF chartRect(40, 20, width() - 60, height() - 50);
+    QRectF chartRect = getChartRect();
     bool clickedAny = false;
 
     for (int s = 0; s < values_.size(); ++s) {

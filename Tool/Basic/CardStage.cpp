@@ -1,6 +1,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QLinearGradient>
+#include <QStyleOption>
 #include <algorithm>
 
 #include "CardStage.hpp"
@@ -11,8 +12,9 @@
 
 StagingWidget::StagingWidget(QWidget* parent)
     : QWidget(parent) {
-    this->setAttribute(Qt::WA_TranslucentBackground);
-    this->setAutoFillBackground(false);
+    // 允许通过 StyleSheet 控制背景。如果想保留透明层级，用户可以在 QSS 里写 background: transparent;
+    // this->setAttribute(Qt::WA_TranslucentBackground);
+    // this->setAutoFillBackground(false);
 }
 
 void StagingWidget::setData(QList<StageData> data) {
@@ -41,7 +43,7 @@ void StagingWidget::setData(QList<StageData> data) {
             .stageIndex{cur.stageIndex},
             .startDuration{cur.startDuration},
             .persistDuration{persistTime}
-        });
+            });
         begin = end;
     }
 
@@ -131,15 +133,12 @@ void StagingWidget::setYLabelColor(QColor color) {
 }
 
 void StagingWidget::paintEvent(QPaintEvent* /*event*/) {
+    // 关键点：让常规 StyleSheet (如 background-color, border) 生效
+    QStyleOption opt;
+    opt.initFrom(this);
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-
-    // 0. 依据配置绘制整体背景
-    if (enableBackground_) {
-        painter.fillRect(rect(), backgroundColor_);
-    } else {
-        painter.fillRect(this->rect(), Qt::GlobalColor::transparent);
-    }
+    style()->drawPrimitive(QStyle::PE_Widget, &opt, &painter, this);
 
     qsizetype stageCount = barColors_.size();
     if (stageCount == 0 || cachedRects_.isEmpty()) return;
@@ -203,7 +202,7 @@ void StagingWidget::paintEvent(QPaintEvent* /*event*/) {
             for (qsizetype index{ 0 }; cur.stageIndex + sign * index != nxt.stageIndex; ++index)
                 gradient.setColorAt(colorD * index, barColors_.value(cur.stageIndex + sign * index));
             gradient.setColorAt(1.0, barColors_.value(nxt.stageIndex));
-            
+
             qreal curveThickness = this->barWidth_ * 0.05;
             QPen curvePen(QBrush(gradient), curveThickness, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
 
@@ -331,6 +330,34 @@ void EventWidget::setLabelsEnabled(bool x, bool y) {
     this->update();
 }
 
+void EventWidget::setAxisColor(const QColor& color) {
+    if (axisColor_ != color) { axisColor_ = color; this->update(); }
+}
+
+void EventWidget::setXLabelColor(const QColor& color) {
+    if (xLabelColor_ != color) { xLabelColor_ = color; this->update(); }
+}
+
+void EventWidget::setYLabelColor(const QColor& color) {
+    if (yLabelColor_ != color) { yLabelColor_ = color; this->update(); }
+}
+
+void EventWidget::setEnableXAxis(bool enable) {
+    if (enableXAxis_ != enable) { enableXAxis_ = enable; this->update(); }
+}
+
+void EventWidget::setEnableYAxis(bool enable) {
+    if (enableYAxis_ != enable) { enableYAxis_ = enable; this->update(); }
+}
+
+void EventWidget::setEnableXLabel(bool enable) {
+    if (enableXLabel_ != enable) { enableXLabel_ = enable; this->updateLayout(); }
+}
+
+void EventWidget::setEnableYLabel(bool enable) {
+    if (enableYLabel_ != enable) { enableYLabel_ = enable; this->updateLayout(); }
+}
+
 void EventWidget::setBarClickable(bool clickable) {
     barClickable_ = clickable;
 }
@@ -413,16 +440,12 @@ QColor EventWidget::getColorForStage(qsizetype stageIndex) const {
 
 void EventWidget::paintEvent(QPaintEvent* event) {
     Q_UNUSED(event);
+    // 关键点：让常规 StyleSheet (如 background-color, border) 生效
+    QStyleOption opt;
+    opt.initFrom(this);
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-
-    // 0. 依据配置绘制整体背景
-    if (enableBackground_) {
-        painter.fillRect(rect(), backgroundColor_);
-    }
-    else {
-        painter.fillRect(this->rect(), Qt::GlobalColor::transparent);
-    }
+    style()->drawPrimitive(QStyle::PE_Widget, &opt, &painter, this);
 
     if (plotRect_.width() <= 0 || plotRect_.height() <= 0 || values_.isEmpty()) {
         return;

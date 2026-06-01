@@ -27,7 +27,14 @@ class QResizeEvent;
 // BASE CLASS: AbstractWaveformWidget
 // ============================================================================
 class WAVEFORM_EXPORT AbstractWaveformWidget : public QWidget {
-    Q_OBJECT
+    Q_OBJECT;
+
+    // --- 注册 Q_PROPERTY 属性，使其支持 QSS 样式表 ---
+    Q_PROPERTY(QColor backgroundColor READ backgroundColor WRITE setBackgroundColor);
+    Q_PROPERTY(QColor borderColor READ borderColor WRITE setBorderColor);
+    Q_PROPERTY(QColor gridColor READ gridColor WRITE setGridColor);
+    Q_PROPERTY(QColor textColor READ textColor WRITE setTextColor);
+    Q_PROPERTY(qreal cornerRadius READ cornerRadius WRITE setCornerRadius);
 
 public:
     explicit AbstractWaveformWidget(QWidget* parent = nullptr);
@@ -57,15 +64,24 @@ public:
     void setYStep(quint32 step);
     quint32 yStep() const noexcept { return this->yStep_; }
 
-    // --- Card Elements Interface ---
+    // --- Card Elements Interface (支持 QSS 的接口) ---
     void setTitle(const QString& title);
     QString title() const { return title_; }
+
     void setBorderColor(const QColor& color);
     QColor borderColor() const { return borderColor_; }
+
     void setCornerRadius(qreal radius);
     qreal cornerRadius() const { return cornerRadius_; }
-    void setBackgroundColor(QColor background);
-    
+
+    void setBackgroundColor(const QColor& background);
+    QColor backgroundColor() const { return bkgColor_; }
+
+    void setGridColor(const QColor& color);
+    QColor gridColor() const { return gridColor_; }
+
+    void setTextColor(const QColor& color);
+    QColor textColor() const { return textColor_; }
 
     // --- Viewport Control Interface ---
     void selectCurve(qsizetype index);
@@ -119,7 +135,7 @@ protected:
     bool allowZoom_ = true;
     bool allowCurveSelect_ = true;
     bool enableBackground_ = false;
-    bool enableBorder_ = true;
+    bool enableBorder_ = false;
 
     bool isPressed_ = false;
     QPoint lastMousePos_;

@@ -8,6 +8,7 @@
 #include <QRandomGenerator>
 #include <QtMath>
 #include <QTimer>
+#include <QScroller>
 #include <QFont>
 
 #include "Backend/Ui/Session.hpp"
@@ -304,8 +305,11 @@ void PSGMainPage::initLayout() {
 	exitButton->setCursor(Qt::PointingHandCursor);
 
 	connect(exitButton, &QPushButton::clicked, this, [this]() {
-		if (UiSession::instance()) { UiSession::instance()->pop(); }
-		});
+		if (UiSession::instance()) { 
+			while (UiSession::instance()->pop() != this);
+			delete this;
+		}
+	});
 
 	headerLayout->addLayout(titleLayout);
 	headerLayout->addStretch();
@@ -318,6 +322,7 @@ void PSGMainPage::initLayout() {
 	scrollArea->setWidgetResizable(true);
 	scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	QScroller::scroller(scrollArea)->grabGesture(scrollArea, QScroller::LeftMouseButtonGesture);
 	scrollArea->setFrameShape(QFrame::NoFrame);
 
 	auto* scrollContainer = new QWidget(scrollArea);
@@ -471,7 +476,12 @@ void PSGMainPage::generateMockData() {
 	auto* session = UiSession::instance();
 	auto* rand = QRandomGenerator::global();
 
+	auto area = this->findChild<QScrollArea*>(lstr("MainScrollArea"), Qt::FindChildOption::FindDirectChildrenOnly);
+	
 	// 1. 深度联动：获取状态核心五元色，用于渲染 5 类睡眠结构分期
+	QString surface = session->theme().value(UiField::Surface).toString();
+	area->setStyleSheet(lstr("background-color: %1").arg(surface));
+
 	QColor cWake = session ? QColor(session->theme().value("danger").toString()) : QColor("#EF4444");
 	QColor cREM = session ? QColor(session->theme().value("primary").toString()) : QColor("#3B82F6");
 	QColor cN1 = session ? QColor(session->theme().value("warning").toString()) : QColor("#F59E0B");

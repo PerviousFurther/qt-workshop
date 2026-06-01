@@ -69,13 +69,12 @@ UiTestDetailPage::UiTestDetailPage(int id, QString title, QWidget* parent)
 
 void UiTestDetailPage::updateStyles() {
 	UiSession* session = UiSession::instance();
-	if (!session) return;
+	// if (!session) return;
 
 	QVariantMap themeMap = session->theme();
 	QVariantMap fontMap = session->font();
 
 	QString background = themeMap.value(UiField::Background).toString();
-	// QString background = lstr("#FFFFFF");
 	QString surface = themeMap.value(UiField::Surface).toString();
 	QString border = themeMap.value(UiField::Border).toString();
 	QString grid = themeMap.value(UiField::Grid).toString();

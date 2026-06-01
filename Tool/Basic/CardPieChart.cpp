@@ -2,6 +2,8 @@
 #include <QPainterPath>
 #include <QMouseEvent>
 #include <QtMath>
+#include <QStyleOption>
+#include <QStyle>
 
 #include "CardPieChart.hpp"
 
@@ -10,8 +12,8 @@ PieChartWidget::PieChartWidget(QWidget* parent)
     , backgroundColor_(Qt::transparent)
     , holeRadius_(0.0)
     , enableSelected_(true) {
-    this->setAttribute(Qt::WA_TranslucentBackground);
-    this->setAutoFillBackground(false);
+    // this->setAttribute(Qt::WA_TranslucentBackground);
+    // this->setAutoFillBackground(false);
 }
 
 void PieChartWidget::setData(const QList<qreal>& percentages, const QList<QColor>& colors) {
@@ -19,8 +21,12 @@ void PieChartWidget::setData(const QList<qreal>& percentages, const QList<QColor
         percentages_ = percentages;
     if (!colors.isEmpty())
         colors_ = colors;
-    Q_ASSERT_X(percentages_.size() <= colors_.size(), 
-        "PieChartWidget::setData", "size of data should equal size of colors");
+
+    while (colors_.size() < percentages_.size()) {
+        int hue = std::rand() % 360;
+        colors_.append(QColor::fromHsv(hue, 180, 230));
+    }
+
     selectedIds_.clear();
     this->update();
 }
@@ -71,10 +77,14 @@ void PieChartWidget::paintEvent(QPaintEvent* event) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    if (enableBackground_) {
+    // 💡 3. 核心：渲染 QSS 样式表定义的背景、边框、圆角
+    QStyleOption opt;
+    opt.initFrom(this);
+    style()->drawPrimitive(QStyle::PE_Widget, &opt, &painter, this);
+
+    // 如果未设置 QSS 的 background，且开启了原有的 enableBackground_，则走旧的兜底逻辑
+    if (enableBackground_ && !styleSheet().contains("background")) {
         painter.fillRect(this->rect(), backgroundColor_);
-    } else {
-        painter.fillRect(this->rect(), Qt::GlobalColor::transparent);
     }
 
     if (percentages_.isEmpty()) return;
