@@ -392,14 +392,12 @@ void PageUser::handleRegister() {
             registerBtn_->setEnabled(true);
             nameLabel_->setText(username + lstr(" (新用户)"));
             this->updateLoginState(true);
-            });
-    }
-    else {
+        });
+    } else {
         auto* session = NetworkSession::instance();
         if (session) {
             session->create(username, password);
-        }
-        else {
+        } else {
             registerBtn_->setEnabled(true);
             registerHintLabel_->setStyleSheet(lstr("color: #FF4D4F; font-size: 14px; font-weight: bold; background: transparent;"));
             registerHintLabel_->setText(lstr("网络模块未加载，无法注册"));

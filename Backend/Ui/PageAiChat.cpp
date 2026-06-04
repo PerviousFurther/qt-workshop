@@ -305,7 +305,7 @@ void ChatAreaPanel::updateThemeAndStyles() {
         .arg(fontFamily).arg(primaryColor).arg(sizeNormal));
 }
 
-inline ModelSettingsPanel::ModelSettingsPanel(QWidget* parent) : QWidget(parent) {
+ModelSettingsPanel::ModelSettingsPanel(QWidget* parent) : QWidget(parent) {
     auto* masterLayout = new QHBoxLayout(this);
     masterLayout->setContentsMargins(0, 0, 0, 0);
     masterLayout->setSpacing(0);
@@ -340,19 +340,19 @@ inline ModelSettingsPanel::ModelSettingsPanel(QWidget* parent) : QWidget(parent)
     refreshModels();
 }
 
-inline void ModelSettingsPanel::setExpanded(bool expanded) {
+void ModelSettingsPanel::setExpanded(bool expanded) {
     contentWidget_->setVisible(expanded);
     titleBar_->setVisible(!expanded);
 }
 
-inline void ModelSettingsPanel::refreshModels() {
+void ModelSettingsPanel::refreshModels() {
     modelList_->clear();
     // 严格遵循接口声明的拼写：availbleModel()
     QStringList models = AiChatSession::instance()->availbleModel();
     modelList_->addItems(models);
 }
 
-inline void ModelSettingsPanel::updateThemeAndStyles() {
+void ModelSettingsPanel::updateThemeAndStyles() {
     auto theme = UiSession::instance()->theme();
     auto font = UiSession::instance()->font();
 

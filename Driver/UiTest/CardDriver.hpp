@@ -25,9 +25,12 @@ private:
 };
 
 class DeviceRecordCard : public QWidget {
-    Q_OBJECT
+    Q_OBJECT;
 public:
-    DeviceRecordCard(const QString& time, const QString& action, bool isSuccess, QWidget* parent = nullptr);
+    DeviceRecordCard(int id, const QString& identifier, const QString& filename, QWidget* parent = nullptr);
+
+signals:
+    void requestRecordPage(int id, QString identifier);
 
 private:
     void updateStyle();

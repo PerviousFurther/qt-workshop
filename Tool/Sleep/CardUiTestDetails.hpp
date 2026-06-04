@@ -128,13 +128,20 @@ class SleepDashboardWidget : public QWidget {
     Q_OBJECT
 public:
     explicit SleepDashboardWidget(QWidget* parent = nullptr);
+    ~SleepDashboardWidget();
 
     SleepStagingCard* stagingCard() const { return stagingCard_; }
     RespiratoryEventsCard* respiratoryCard() const { return respiratoryCard_; }
     SpO2TrendCard* spo2Card() const { return spo2Card_; }
     BodyPositionCard* bodyPositionCard() const { return bodyPositionCard_; }
+    void loadRecord(const QString& identifier);
+    void stopRecording();
+
+private:
+    void updateCardsWithHistoryData();
 
 private slots:
+    void onFileRead(const QString& identifier, const QByteArray& data);
     void onEnabledToggled(bool checked);
     void onBytesChanged(int value);
     void onThemeChanged();

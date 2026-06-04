@@ -15,7 +15,6 @@
 
 #include "CardUiTestDetails.hpp"
 
-// 为自定义的 StageData 结构提供数据流序列化操作符
 static QDataStream& operator<<(QDataStream& out, const StageData& data) {
 	out << data.stageIndex << data.startDuration << data.persistDuration;
 	return out;
@@ -181,10 +180,6 @@ void SleepBaseCard::onThemeChanged() {
 
 	updateThemeStyles(theme, font);
 }
-
-
-
-
 
 SleepStagingCard::SleepStagingCard(QWidget* parent) : SleepBaseCard(lstr("睡眠分期"), parent) {
 	this->addView(stagingWidget_ = new StagingWidget(this));
@@ -413,13 +408,11 @@ SleepDashboardWidget::SleepDashboardWidget(QWidget* parent) : QWidget(parent) {
 
 	if (auto* driver = UITestModule::instance()) {
 		connect(driver, &UITestModule::readResponded, this, &SleepDashboardWidget::onReadResponded);
+		connect(driver, &UITestModule::fileRead, this, &SleepDashboardWidget::onFileRead);
 		connect(driver, &UITestModule::errorOccured, this, [this](QString id, QString message) {
 			qCritical() << lstr("[UiTest ToolSleep ERROR] Device Error [ID: %1]: %2").arg(id, message);
 
-			QMessageBox::critical(this,
-				lstr("设备错误"),
-				lstr("测量过程中发生设备异常！\n\n设备ID: %1\n错误信息: %2").arg(id, message)
-			);
+			QMessageBox::critical(this, lstr("出现错误"), lstr("保存记录失败：%1").arg(message));
 
 			if (switchEnabledBtn_ && switchEnabledBtn_->isChecked()) {
 				switchEnabledBtn_->setChecked(false);
@@ -439,6 +432,11 @@ SleepDashboardWidget::SleepDashboardWidget(QWidget* parent) : QWidget(parent) {
 	spo2Card_->setViewState(false, false);
 	bodyPositionCard_->setViewState(false, false);
 
+}
+
+SleepDashboardWidget::~SleepDashboardWidget() {
+	this->stopRecording();
+	// qInfo() << "What the shit!!!!!!!!!";
 }
 
 void SleepDashboardWidget::onThemeChanged() {
@@ -613,7 +611,7 @@ void SleepDashboardWidget::onEnabledToggled(bool checked) {
 		driver->write(deviceId_, DeviceField::UiTest::RequestSample, cmd);
 
 		pollTimer_->start(250);
-	} else {
+	} else if(pollTimer_->isActive()) {
 		pollTimer_->stop();
 
 		QByteArray cmd;
@@ -624,80 +622,11 @@ void SleepDashboardWidget::onEnabledToggled(bool checked) {
 
 		bool hasData = !stagingHistory_.isEmpty() || !spo2TrendPoints_.isEmpty() || !positionHistory_.isEmpty() || !apneaHistory_.isEmpty();
 		if (hasData) {
-			// === 1. 睡眠分期图表结算统计 ===
-			qreal c0 = 0, c1 = 0, c2 = 0;
-			for (const auto& item : stagingHistory_) {
-				if (item.stageIndex == 0) c0++;
-				else if (item.stageIndex == 1) c1++;
-				else if (item.stageIndex == 2) c2++;
-			}
-			qreal totalStaging = stagingHistory_.size();
-			QList<qreal> stagingPercentages = { 0.0, 0.0, 0.0 };
-			if (totalStaging > 0) {
-				stagingPercentages = { (c0 / totalStaging) * 100.0, (c1 / totalStaging) * 100.0, (c2 / totalStaging) * 100.0 };
-			}
-			stagingCard_->setData(stagingHistory_, stagingPercentages);
+			updateCardsWithHistoryData();
 
-			// === 2. 停止后统一进行血氧分布图表结算统计 ===
-			qreal normalSpO2 = 0, mildSpO2 = 0, severeSpO2 = 0;
-			for (const auto& pt : spo2TrendPoints_) {
-				if (pt.y() >= 95.0) normalSpO2++;
-				else if (pt.y() >= 90.0) mildSpO2++;
-				else severeSpO2++;
-			}
-			qreal totalSpO2 = spo2TrendPoints_.size();
-			QList<qreal> spo2Percentages = { 0.0, 0.0, 0.0 };
-			if (totalSpO2 > 0) {
-				spo2Percentages = { (severeSpO2 / totalSpO2) * 100.0, (normalSpO2 / totalSpO2) * 100.0, (mildSpO2 / totalSpO2) * 100.0 };
-			}
-			spo2Card_->setData(spo2TrendPoints_, spo2Percentages);
-
-			// === 3. 停止后统一进行体位分布图表结算统计 ===
-			qreal p0 = 0, p1 = 0, p2 = 0, p3 = 0;
-			for (const auto& item : positionHistory_) {
-				if (item.stageIndex == 0) p0++;
-				else if (item.stageIndex == 1) p1++;
-				else if (item.stageIndex == 2) p2++;
-				else if (item.stageIndex == 3) p3++;
-			}
-			qreal totalPosition = positionHistory_.size();
-			QList<qreal> positionPercentages = { 0.0, 0.0, 0.0, 0.0 };
-			if (totalPosition > 0) {
-				positionPercentages = { (p0 / totalPosition) * 100.0, (p1 / totalPosition) * 100.0, (p2 / totalPosition) * 100.0, (p3 / totalPosition) * 100.0 };
-			}
-			bodyPositionCard_->setData(positionHistory_, positionPercentages);
-
-			// === 4. 停止后统一进行呼吸事件全局结算汇总 ===
-			qreal windowSize = 40.0;
-			qreal minTime = qMax(0.0, currentRespTime_ - windowSize);
-			auto getAdjustedViewportHistory = [minTime](const QList<StageData>& srcHistory) {
-				QList<StageData> destHistory;
-				for (const auto& block : srcHistory) {
-					if (block.startDuration + block.persistDuration > minTime) {
-						StageData adj = block;
-						adj.startDuration = qMax(0.0, block.startDuration - minTime);
-						if (block.startDuration < minTime) {
-							adj.persistDuration = (block.startDuration + block.persistDuration) - minTime;
-						}
-						destHistory.append(adj);
-					}
-				}
-				return destHistory;
-			};
-
-			QList<QList<StageData>> eventDataList;
-			eventDataList.append(getAdjustedViewportHistory(apneaHistory_));
-			eventDataList.append(getAdjustedViewportHistory(obstructiveHistory_));
-			eventDataList.append(getAdjustedViewportHistory(centralHistory_));
-
-			QList<QList<qreal>> barValues = { { qreal(normalCount_), qreal(hypopneaCount_), qreal(apneaCount_) } };
-			QList<QList<QString>> barLabels = { { lstr("正常呼吸"), lstr("低通气"), lstr("呼吸暂停") } };
-			respiratoryCard_->setData(eventDataList, barValues, barLabels);
-
-			// 本地持久化归档
 			auto time = QDateTime::currentDateTime();
 			auto userId = NetworkSession::instance()->userId();
-			auto idfile = userId + time.toString("yyyy.MM.dd:hh.mm");
+			auto idfile = userId + time.toString("yyyy-MM-dd-hh-mm");
 			QByteArray sessionBuffer;
 			QDataStream outStream(&sessionBuffer, QIODevice::WriteOnly);
 
@@ -712,12 +641,12 @@ void SleepDashboardWidget::onEnabledToggled(bool checked) {
 
 			QByteArray compressedPayload = qCompress(sessionBuffer);
 			driver->writeRecordFile(idfile, idfile + ".z", compressedPayload);
+		} else {
+			stagingCard_->setViewState(false, false);
+			respiratoryCard_->setViewState(false, false);
+			spo2Card_->setViewState(false, false);
+			bodyPositionCard_->setViewState(false, false);
 		}
-
-		stagingCard_->setViewState(false, hasData);
-		respiratoryCard_->setViewState(false, hasData);
-		spo2Card_->setViewState(false, hasData);
-		bodyPositionCard_->setViewState(false, hasData);
 	}
 }
 
@@ -934,4 +863,130 @@ void SleepDashboardWidget::processBodyPositionData(const int16_t* samples, int c
 	}
 
 	bodyPositionCard_->setData(positionHistory_, { 0.0, 0.0, 0.0, 0.0 });
+}
+
+void SleepDashboardWidget::loadRecord(const QString& identifier) {
+	auto* driver = UITestModule::instance();
+	if (!driver || identifier.isEmpty()) return;
+
+	this->onEnabledToggled(false);
+
+	if (switchEnabledBtn_ && switchEnabledBtn_->isChecked()) {
+		switchEnabledBtn_->setChecked(false);
+	}
+
+	driver->readRecordFile(identifier);
+}
+
+void SleepDashboardWidget::stopRecording() {
+	this->onEnabledToggled(false);
+}
+
+void SleepDashboardWidget::onFileRead(const QString& identifier, const QByteArray& data) {
+	if (data.isEmpty()) {
+		qWarning() << "[SleepDashboard] 读取到的历史数据为空, ID:" << identifier;
+		return;
+	}
+
+	QByteArray sessionBuffer = qUncompress(data);
+	QDataStream inStream(&sessionBuffer, QIODevice::ReadOnly);
+
+	stagingHistory_.clear();
+	spo2TrendPoints_.clear();
+	positionHistory_.clear();
+	apneaHistory_.clear();
+	obstructiveHistory_.clear();
+	centralHistory_.clear();
+
+	inStream >> stagingHistory_;
+	inStream >> spo2TrendPoints_;
+	inStream >> positionHistory_;
+	inStream >> apneaHistory_;
+	inStream >> obstructiveHistory_;
+	inStream >> centralHistory_;
+	inStream >> normalCount_ >> hypopneaCount_ >> apneaCount_;
+	inStream >> currentRespTime_ >> timeIndex_;
+
+	this->updateCardsWithHistoryData();
+}
+
+void SleepDashboardWidget::updateCardsWithHistoryData() {
+	bool hasData = !stagingHistory_.isEmpty() || !spo2TrendPoints_.isEmpty() || !positionHistory_.isEmpty() || !apneaHistory_.isEmpty();
+
+	if (hasData) {
+		// === 1. 睡眠分期统计 ===
+		qreal c0 = 0, c1 = 0, c2 = 0;
+		for (const auto& item : stagingHistory_) {
+			if (item.stageIndex == 0) c0++;
+			else if (item.stageIndex == 1) c1++;
+			else if (item.stageIndex == 2) c2++;
+		}
+		qreal totalStaging = stagingHistory_.size();
+		QList<qreal> stagingPercentages = { 0.0, 0.0, 0.0 };
+		if (totalStaging > 0) {
+			stagingPercentages = { (c0 / totalStaging) * 100.0, (c1 / totalStaging) * 100.0, (c2 / totalStaging) * 100.0 };
+		}
+		stagingCard_->setData(stagingHistory_, stagingPercentages);
+
+		// === 2. 血氧分布统计 ===
+		qreal normalSpO2 = 0, mildSpO2 = 0, severeSpO2 = 0;
+		for (const auto& pt : spo2TrendPoints_) {
+			if (pt.y() >= 95.0) normalSpO2++;
+			else if (pt.y() >= 90.0) mildSpO2++;
+			else severeSpO2++;
+		}
+		qreal totalSpO2 = spo2TrendPoints_.size();
+		QList<qreal> spo2Percentages = { 0.0, 0.0, 0.0 };
+		if (totalSpO2 > 0) {
+			spo2Percentages = { (severeSpO2 / totalSpO2) * 100.0, (normalSpO2 / totalSpO2) * 100.0, (mildSpO2 / totalSpO2) * 100.0 };
+		}
+		spo2Card_->setData(spo2TrendPoints_, spo2Percentages);
+
+		// === 3. 体位分布统计 ===
+		qreal p0 = 0, p1 = 0, p2 = 0, p3 = 0;
+		for (const auto& item : positionHistory_) {
+			if (item.stageIndex == 0) p0++;
+			else if (item.stageIndex == 1) p1++;
+			else if (item.stageIndex == 2) p2++;
+			else if (item.stageIndex == 3) p3++;
+		}
+		qreal totalPosition = positionHistory_.size();
+		QList<qreal> positionPercentages = { 0.0, 0.0, 0.0, 0.0 };
+		if (totalPosition > 0) {
+			positionPercentages = { (p0 / totalPosition) * 100.0, (p1 / totalPosition) * 100.0, (p2 / totalPosition) * 100.0, (p3 / totalPosition) * 100.0 };
+		}
+		bodyPositionCard_->setData(positionHistory_, positionPercentages);
+
+		// === 4. 呼吸事件统计 ===
+		qreal windowSize = 40.0;
+		qreal minTime = qMax(0.0, currentRespTime_ - windowSize);
+		auto getAdjustedViewportHistory = [minTime](const QList<StageData>& srcHistory) {
+			QList<StageData> destHistory;
+			for (const auto& block : srcHistory) {
+				if (block.startDuration + block.persistDuration > minTime) {
+					StageData adj = block;
+					adj.startDuration = qMax(0.0, block.startDuration - minTime);
+					if (block.startDuration < minTime) {
+						adj.persistDuration = (block.startDuration + block.persistDuration) - minTime;
+					}
+					destHistory.append(adj);
+				}
+			}
+			return destHistory;
+		};
+
+		QList<QList<StageData>> eventDataList;
+		eventDataList.append(getAdjustedViewportHistory(apneaHistory_));
+		eventDataList.append(getAdjustedViewportHistory(obstructiveHistory_));
+		eventDataList.append(getAdjustedViewportHistory(centralHistory_));
+
+		QList<QList<qreal>> barValues = { { qreal(normalCount_), qreal(hypopneaCount_), qreal(apneaCount_) } };
+		QList<QList<QString>> barLabels = { { lstr("正常呼吸"), lstr("低通气"), lstr("呼吸暂停") } };
+		respiratoryCard_->setData(eventDataList, barValues, barLabels);
+	}
+
+	stagingCard_->setViewState(false, hasData);
+	respiratoryCard_->setViewState(false, hasData);
+	spo2Card_->setViewState(false, hasData);
+	bodyPositionCard_->setViewState(false, hasData);
 }

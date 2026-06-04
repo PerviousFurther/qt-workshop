@@ -63,8 +63,8 @@ private:
     QWidget* scrollWidget_ = nullptr;
     QVBoxLayout* bleDeviceListLayout_ = nullptr;
     QVBoxLayout* bleLayout_ = nullptr;
-
-    bool isExpanded_;
+    QListWidget* listWidget_ = nullptr;
+    bool isExpanded_ = false;
 };
 
 class ConnectedDevicesPanel : public Extensible {
@@ -93,6 +93,7 @@ private:
     QLabel* hintLabel_ = nullptr;
     QVBoxLayout* connectedDevicesLayout_ = nullptr;
     QPushButton* addDeviceBtn_ = nullptr;
+    QListWidget* listWidget_ = nullptr;
 
     bool isExpanded_;
 };

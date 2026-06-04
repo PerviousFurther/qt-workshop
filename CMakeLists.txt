@@ -79,17 +79,23 @@ install(TARGETS RingAppGui
     LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}"
 )
 
-set(deploy_tool_options_arg
-    --plugindir "${CMAKE_INSTALL_PREFIX}/temp"
-    --libdir "${CMAKE_INSTALL_PREFIX}/temp"
-    # --qml-deploy-dir "${CMAKE_INSTALL_PREFIX}/temp/qml"
-    # --qmldir "${CMAKE_SOURCE_DIR}/Qmls"
-    --no-ffmpeg --no-opengl-sw 
-)
-if(APPLE)
-    set(deploy_tool_options_arg --hardened-runtime ${deploy_tool_options_arg})
-elseif(WIN32)
-    set(deploy_tool_options_arg --no-system-d3d-compiler ${deploy_tool_options_arg})
+if(ANDROID)
+    set(deploy_tool_options_arg
+        # Android deploy options — androiddeployqt handles most automatically
+    )
+else()
+    set(deploy_tool_options_arg
+        --plugindir "${CMAKE_INSTALL_PREFIX}/temp"
+        --libdir "${CMAKE_INSTALL_PREFIX}/temp"
+        # --qml-deploy-dir "${CMAKE_INSTALL_PREFIX}/temp/qml"
+        # --qmldir "${CMAKE_SOURCE_DIR}/Qmls"
+        --no-ffmpeg --no-opengl-sw
+    )
+    if(APPLE)
+        set(deploy_tool_options_arg --hardened-runtime ${deploy_tool_options_arg})
+    elseif(WIN32)
+        set(deploy_tool_options_arg --no-system-d3d-compiler ${deploy_tool_options_arg})
+    endif()
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -107,14 +113,16 @@ qt_generate_deploy_app_script(TARGET RingAppGui
 )
 install(SCRIPT ${deploy_script})
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(DLL_PREFIX "d")
-else()
-    set(DLL_PREFIX "")
-endif()
+if(WIN32)
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(DLL_PREFIX "d")
+    else()
+        set(DLL_PREFIX "")
+    endif()
 
-install(
-    FILES 
-        "$ENV{QTDIR}/bin/Qt6Bluetooth${DLL_PREFIX}.dll"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}")
-install(SCRIPT "${CMAKE_SOURCE_DIR}/Scripts/movedlls.cmake")
+    install(
+        FILES
+            "$ENV{QTDIR}/bin/Qt6Bluetooth${DLL_PREFIX}.dll"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}")
+    install(SCRIPT "${CMAKE_SOURCE_DIR}/Scripts/movedlls.cmake")
+endif()

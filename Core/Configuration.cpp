@@ -142,7 +142,6 @@ static bool variantPatch(QVariant& container, const QString& path, const QVarian
 Configuration::Configuration(QString path, QObject* parent)
     : QObject{parent}
     , path_{path.trimmed()} {
-    
     Q_ASSERT(!singletonInstance_);
     Q_ASSERT(!path_.isEmpty());
 

@@ -19,26 +19,27 @@ BasicDeviceModule : public DeviceModule
 {
 	Q_OBJECT;
 public:
-	using DeviceModule::DeviceModule;
+	BasicDeviceModule(QString moduleName, int major = 1, int minor = 0, int patch = 0);
 
 signals:
 	void fileSaved(QString identifier);
 	void fileRead(QString identifier, QByteArray data);
-	void fileError(QString identifier, QString error);
 
 	void uploaded(QString identifier);
 	void downloaded(QString identifier, QByteArray data);
-	// Network error.
+	// file error or network upload error.
 	void errorOccured(QString identifier, QString error);
 
 	void canceled(QString identifier);
+	void recordsChanged();
 
 public:
 	// operation requires the identifier is unique.
 	// append record data into configuration, local file and upload it to cloud if have.
-	bool writeRecordFile(QString identifier, QString filename, QByteArray rawData);
+	virtual bool writeRecordFile(QString identifier, QString filename, QByteArray rawData);
 	// return false if the id is not marked.
-	bool readRecordFile(QString identifier);
+	virtual bool readRecordFile(QString identifier);
+	virtual QStringList availbleRecords();
 
 	bool load(QString& error) override;
 	bool unload(QString& error) override;
@@ -46,7 +47,7 @@ public:
 private slots:
 	void onUserChanged();
 	void onRequested(NetworkRespone* respone);
-
+	void loadHistoryRecords();
 private:
 	struct TaskInfo {
 		QString identifier;
@@ -57,9 +58,14 @@ private:
 		bool cancelRequested = false;
 	};
 
+private:
 	void startUpload(const QString& identifier);
 
+private:
 	QMutex mutex_;
 	QHash<QString, TaskInfo> tasks_;
 	QHash<NetworkRespone*, QString> responseToId_;
+
+protected:
+	QHash<QString, QString> recordsToFullPath_;
 };

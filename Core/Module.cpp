@@ -178,9 +178,9 @@ ModuleRegistry::~ModuleRegistry() {
 }
 
 void ModuleRegistry::load() {
+    qInfo() << "----------------------BEGIN loading modules----------------------";
     for (auto& moduleName : this->order_) {
         const auto& c = this->moduleStates_.value(moduleName);
-        qInfo() << lstr("[MODULE load] Loading %1...").arg(moduleName);
         if (c.value(ModuleField::STATE).toString() == ModuleField::Enabled)
             this->signIn(moduleName);
     }

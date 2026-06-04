@@ -1,6 +1,6 @@
 #include "Core/Module.hpp"
 
-class Driver;
+class SleepDashboardWidget;
 class 
 #if defined(RINGAPP_TOOL_SLEEP_EXPORT)
 	Q_DECL_EXPORT
@@ -32,7 +32,7 @@ private slots:
 private:
 	QStringList availbleDevices_;
 	QList<qsizetype> cardIds_;
-	QWidget* detailCards_ = nullptr;
+	SleepDashboardWidget* detailCards_ = nullptr;
 	QWidget* pageSleep_ = nullptr;
 };
 

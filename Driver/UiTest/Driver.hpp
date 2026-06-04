@@ -20,11 +20,16 @@ public:
 	UITestModule();
 
 signals:
-	void openingDetailPage(int id);
+	void openingDetailPage(int id, QString identifier = {});
+	void closeDetailPage(int id, QString identifier = {});
+
 	void requestMeasure(int id);
 
 public:
 	static auto instance() { return instance_; }
+
+	bool writeRecordFile(QString identifier, QString filename, QByteArray rawData) override;
+	bool readRecordFile(QString identifier) override;
 
 	bool load(QString& error) override;
 	bool unload(QString& error) override;
@@ -46,15 +51,17 @@ public:
 
 public slots:
 	void openDetailPage(int id);
+	void openDetailPageW(int id, QString ide);
 	void onTimerTimeout();
+	void onRecordsChanged();
 
 private:
 	inline static UITestModule* instance_ = nullptr;
 
 	int deviceId_ = -1;
-	// QWidget *searched = nullptr, *connected = nullptr, *records = nullptr;
 	Extensible* detailPage_ = nullptr;
-	qsizetype searchId_ = -1, connectedId_ = -1, historyId_ = -1;
+	qsizetype searchId_ = -1, connectedId_ = -1;
+	QList<qsizetype> recordIds_;
 
 	QTimer* simTimer_ = nullptr;
 	QMap<int, QByteArray> channelBuffers_;

@@ -15,6 +15,20 @@ UITestModule::UITestModule()
     instance_ = this;
     simTimer_ = new QTimer(this);
     connect(simTimer_, &QTimer::timeout, this, &UITestModule::onTimerTimeout);
+    connect(this, &UITestModule::recordsChanged, this, &UITestModule::onRecordsChanged);
+}
+
+void UITestModule::onRecordsChanged() {
+    auto ui = UiSession::instance();
+    auto record = ui->deviceRecords();
+    for (auto id : this->recordIds_) {
+        record->deleteWidget(id);
+    }
+    for (auto [key, name] : this->recordsToFullPath_.asKeyValueRange()) {
+        auto card = new DeviceRecordCard(this->deviceId_, key, name);
+        connect(card, &DeviceRecordCard::requestRecordPage, this, &UITestModule::openDetailPageW);
+        this->recordIds_.append(record->appendWidget(card));
+    }
 }
 
 // UiTest immediately reply, but concrete device should notice them and emit responded signal from device.
@@ -109,12 +123,34 @@ void UITestModule::release() noexcept { delete this; }
 QStringList UITestModule::devices() { return {DeviceField::UiTest::Name}; }
 QVariantMap UITestModule::infoOf(int id) { return {}; }
 
-bool UITestModule::load(QString&) { 
-    return DeviceSession::instance()->registerDriverModule(this);
+bool UITestModule::load(QString& error) { 
+    return BasicDeviceModule::load(error) && DeviceSession::instance()->registerDriverModule(this);
 }
-bool UITestModule::unload(QString&) { 
-    return DeviceSession::instance()->unregisterDriverModule(this);
+bool UITestModule::unload(QString& error) {
+    for (auto c : this->recordIds_) 
+        UiSession::instance()->deviceRecords()->deleteWidget(c);
+    return BasicDeviceModule::unload(error) && DeviceSession::instance()->unregisterDriverModule(this);
 }
+
+bool UITestModule::writeRecordFile(QString identifier, QString filename, QByteArray rawData) {
+    auto result = BasicDeviceModule::writeRecordFile(identifier, filename, rawData);
+    if (result) {
+        // auto record = new DeviceRecordCard(filename, lstr("测量"), true);
+        // this->connectedIds_.append(UiSession::instance()->deviceRecords()->appendWidget());
+    } else {
+
+    }
+    return result;
+}
+
+bool UITestModule::readRecordFile(QString identifier) {
+    auto result = BasicDeviceModule::readRecordFile(identifier);
+    if (result) {
+
+    }
+    return result;
+}
+
 
 bool UITestModule::activate(int id, QBluetoothDeviceInfo const&) {
     if (this->deviceId_ != -1) return false;
@@ -154,7 +190,7 @@ bool UITestModule::disconnectDevice(int id) {
     QTimer::singleShot(1000, [this, id]() {
         qInfo() << "[UiTest Message] Device disconnected, id:" << id;
         auto ui = UiSession::instance();
-        this->deviceConnectionError(id, DeviceField::Error_StopManually, lstr());
+        emit this->deviceConnectionError(id, DeviceField::Error_StopManually, lstr());
         ui->connectedDevice()->deleteWidget(qExchange(this->connectedId_, -1));
     });
 
@@ -166,16 +202,22 @@ bool UITestModule::disconnectDevice(int id) {
 }
 
 void UITestModule::openDetailPage(int id) {
+    return openDetailPageW(id, {});
+}
+
+void UITestModule::openDetailPageW(int id, QString ide) {
     auto page = new UiTestDetailPage(id, "UI测试页面");
     this->detailPage_ = page;
-    emit this->openingDetailPage(id);
+    emit this->openingDetailPage(id, ide);
     UiSession::instance()->push(page);
-    connect(page, &UiTestDetailPage::requestBack, this, [this, page]() {
+    connect(page, &UiTestDetailPage::requestBack, this, [this, page, id, ide]() {
         while (UiSession::instance()->pop() != page);
+        emit this->closeDetailPage(id, ide);
         delete page;
     });
     connect(page, &UiTestDetailPage::requestMeasure, this, &UITestModule::requestMeasure);
 }
+
 
 MODULE_ENTRY(Q_DECL_EXPORT)() {
     return new UITestModule();

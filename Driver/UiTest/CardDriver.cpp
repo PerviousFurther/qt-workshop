@@ -1,10 +1,8 @@
-// CardDriver.cpp
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QFrame>
-// #include <QGraphicsDropShadowEffect>
 #include <QFontMetrics>
 #include <QSpacerItem>
 
@@ -12,16 +10,8 @@
 #include "Driver.hpp"
 #include "Backend/Ui/Session.hpp"
 
-// ------------------------------------------------------------
-// 小工具：给卡片加一点很轻的阴影，让层次更干净
-// ------------------------------------------------------------
 static void applyCardShadow(QFrame* frame)
 {
-    // auto* shadow = new QGraphicsDropShadowEffect(frame);
-    // shadow->setBlurRadius(18);
-    // shadow->setOffset(0, 2);
-    // shadow->setColor(QColor(0, 0, 0, 28));
-    // frame->setGraphicsEffect(shadow);
 }
 
 // ============================================================
@@ -358,10 +348,10 @@ void DeviceConnectedCard::updateStyle()
 // ============================================================
 // 3. DeviceRecordCard 操作历史卡片
 // ============================================================
-DeviceRecordCard::DeviceRecordCard(const QString& time, const QString& action, bool isSuccess, QWidget* parent)
+DeviceRecordCard::DeviceRecordCard(int id, const QString& name, const QString& filePath, QWidget* parent)
     : QWidget(parent)
 {
-    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    this->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     auto* mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(10, 6, 10, 6);
@@ -371,56 +361,51 @@ DeviceRecordCard::DeviceRecordCard(const QString& time, const QString& action, b
     cardFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     applyCardShadow(cardFrame);
 
+    // 2. 整体换成 QHBoxLayout，方便右侧塞入按钮
     auto* cardLayout = new QHBoxLayout(cardFrame);
     cardLayout->setContentsMargins(16, 12, 16, 12);
-    cardLayout->setSpacing(14);
+    cardLayout->setSpacing(12);
 
-    auto* leftLayout = new QVBoxLayout();
-    leftLayout->setContentsMargins(0, 0, 0, 0);
-    leftLayout->setSpacing(4);
+    // 左侧：名字和路径直接上下堆叠
+    auto* textLayout = new QVBoxLayout();
+    textLayout->setSpacing(4);
 
-    auto* timeLabel = new QLabel(time, cardFrame);
-    timeLabel->setObjectName("RecordTime");
-    timeLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    timeLabel->setWordWrap(false);
-    // timeLabel->setWordWrap
-    timeLabel->setWordWrap(Qt::ElideRight);
+    // 文件/设备名字
+    auto* nameLabel = new QLabel(name, cardFrame);
+    nameLabel->setObjectName("RecordName");
+    nameLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    nameLabel->setWordWrap(false);
 
-    auto* actionLabel = new QLabel(action, cardFrame);
-    actionLabel->setObjectName("RecordAction");
-    actionLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    actionLabel->setWordWrap(false);
-    actionLabel->setWordWrap(Qt::ElideRight);
+    // 文件路径
+    auto* pathLabel = new QLabel(filePath, cardFrame);
+    pathLabel->setObjectName("RecordPath");
+    pathLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    pathLabel->setWordWrap(false);
 
-    leftLayout->addWidget(timeLabel);
-    leftLayout->addWidget(actionLabel);
+    textLayout->addWidget(nameLabel);
+    textLayout->addWidget(pathLabel);
 
-    auto* statusBadge = new QLabel(cardFrame);
-    statusBadge->setFixedHeight(26);
-    statusBadge->setFixedWidth(64);
-    statusBadge->setAlignment(Qt::AlignCenter);
-    statusBadge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    cardLayout->addLayout(textLayout);
 
-    if (isSuccess) {
-        statusBadge->setText("成功");
-        statusBadge->setObjectName("BadgeSuccess");
-    }
-    else {
-        statusBadge->setText("失败");
-        statusBadge->setObjectName("BadgeFailed");
-    }
-
-    cardLayout->addLayout(leftLayout, 1);
-    cardLayout->addWidget(statusBadge, 0, Qt::AlignVCenter);
+    auto* detailButton = new QPushButton(lstr("查看详情"), cardFrame);
+    detailButton->setObjectName("DetailButton");
+    detailButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    cardLayout->addWidget(detailButton);
 
     mainLayout->addWidget(cardFrame);
+
+    // 4. 信号槽绑定：点击按钮时，引发自定义信号
+    connect(detailButton, &QPushButton::clicked, this, [this, id, name]() {
+        emit this->requestRecordPage(id, name);
+    });
 
     if (auto* session = UiSession::instance()) {
         connect(session, &UiSession::themeChanged, this, &DeviceRecordCard::updateStyle);
         connect(session, &UiSession::fontChanged, this, &DeviceRecordCard::updateStyle);
     }
-    updateStyle();
+    this->updateStyle();
 }
+
 
 void DeviceRecordCard::updateStyle()
 {
@@ -434,12 +419,11 @@ void DeviceRecordCard::updateStyle()
     const int sizeNormal = fontMap.value("sizeNormal", 14).toInt();
     const int sizeSmall = fontMap.value("sizeSmall", 12).toInt();
 
+    auto primary = theme.value(UiField::Primary).toString();
     const QString border = theme.value("border").toString();
     const QString surface = theme.value("surface").toString();
     const QString textPrimary = theme.value("textPrimary").toString();
     const QString textSecondary = theme.value("textSecondary").toString();
-    const QString success = theme.value("success").toString();
-    const QString danger = theme.value("danger").toString();
 
     const QString qss = QString(R"(
         DeviceRecordCard {
@@ -453,35 +437,36 @@ void DeviceRecordCard::updateStyle()
             border: 1px solid %3;
             border-radius: 12px;
         }
-        #RecordTime {
-            color: %6;
-            font-size: %8px;
-        }
-        #RecordAction {
+        #RecordName {
             color: %4;
             font-size: %5px;
             font-weight: 600;
         }
-        #BadgeSuccess, #BadgeFailed {
+        #RecordPath {
+            color: %6;
+            font-size: %7px;
+        }
+        QPushButton {
+            background-color: %8;
             color: #FFFFFF;
-            border-radius: 13px;
-            font-size: %8px;
-            font-weight: 600;
-            padding: 0 10px;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: %7px;
+            font-weight: 500;
         }
-        #BadgeSuccess {
-            background-color: %7;
-        }
-        #BadgeFailed {
+        QPushButton:hover {
             background-color: %9;
+        }
+        QPushButton:pressed {
+            background-color: %8;
         }
     )")
         .arg(fontFamily, surface, border, textPrimary)
         .arg(sizeNormal)
         .arg(textSecondary)
-        .arg(success)
         .arg(sizeSmall)
-        .arg(danger);
+        .arg(primary);
 
     setStyleSheet(qss);
 }

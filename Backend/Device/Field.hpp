@@ -17,7 +17,7 @@ namespace DeviceField {
     inline const auto Error_RemoteMissing = Error_Disconnected | 0x10;
     inline const auto Error_WriteFailure = 0x100;
     inline const auto Error_ReadFailure = 0x200;
-    inline const auto Error_StopManually = 0x1000;
+    inline const auto Error_StopManually = Error_Disconnected | 0x1000;
 
     inline const auto Name = lstr("^n");
 

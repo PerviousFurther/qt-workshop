@@ -67,7 +67,7 @@ template<typename T, typename Map>
 T valueOr(Map&& map, QString key, T defaultVal = {}) noexcept
     requires(requires{ copy<T>(map, key); }) {
     if (copy<T>(map, key)) 
-        return static_cast<Map&&>(map)[key].value<T>();
+        return static_cast<Map&&>(map)[key].template value<T>();
     else 
         return qMove(defaultVal);
 }

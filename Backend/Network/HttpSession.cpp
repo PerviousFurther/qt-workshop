@@ -303,7 +303,7 @@ void appendHeaders(T& headers, QVariant headerObject, int serialCode, QUrl const
                     if constexpr (requires{ headers.setHeaders(::std::declval<QHttpHeaders>()); }) {
                         QString error, name;
                         if (failHeader(error, name, map, serialCode, url)) {
-                            qWarning("%1", error);
+                            qWarning().noquote() << error;
                             break;
                         }
 
@@ -319,7 +319,7 @@ void appendHeaders(T& headers, QVariant headerObject, int serialCode, QUrl const
                 case HttpField::HEADER_Type_Customized: {
                     QString error, name;
                     if (failHeader(error, name, map, serialCode, url)) {
-                        qWarning("%1", error);
+                        qWarning().noquote() << error;
                         break;
                     }
 
@@ -447,8 +447,8 @@ NetworkRespone* HttpSession::request(Network::Request operation, QUrl const& url
             sendContent = QJsonDocument::fromVariant(mmap).toJson();
     }
     else
-        qWarning("Request %3 code %1 to '%2' data cannot identified, data will be ignored.",
-            serialCode, url.toString(), sendBatch);
+        qWarning().noquote() << lstr("Request code %1 to '%2' data cannot identified, data will be ignored.")
+            .arg(serialCode).arg(url.toString());
 
     if (sendMultipart || sendIoDevice || !sendContent.isEmpty()) {
         auto haveProgress = false;

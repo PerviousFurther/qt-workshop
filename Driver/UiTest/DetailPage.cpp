@@ -17,7 +17,6 @@ UiTestDetailPage::UiTestDetailPage(int id, QString title, QWidget* parent)
 	QVBoxLayout* mainLayout = new QVBoxLayout(this);
 	mainLayout->setContentsMargins(10, 10, 10, 10);
 	mainLayout->setSpacing(10);
-	// this->setLayout(mainLayout);
 
 	// 2. 创建顶部栏布局（水平布局）
 	QHBoxLayout* topLayout = new QHBoxLayout();
@@ -46,7 +45,7 @@ UiTestDetailPage::UiTestDetailPage(int id, QString title, QWidget* parent)
 	scrollArea_->setWidgetResizable(true);
 
 	scrollContent_ = new QWidget(scrollArea_);
-	scrollLayout_ = new QVBoxLayout(); // 内部组件仍可保持垂直排列，且会自动横向拉伸占满
+	scrollLayout_ = new QVBoxLayout();
 	scrollLayout_->setAlignment(Qt::AlignTop);
 	scrollContent_->setLayout(scrollLayout_);
 
@@ -69,7 +68,6 @@ UiTestDetailPage::UiTestDetailPage(int id, QString title, QWidget* parent)
 
 void UiTestDetailPage::updateStyles() {
 	UiSession* session = UiSession::instance();
-	// if (!session) return;
 
 	QVariantMap themeMap = session->theme();
 	QVariantMap fontMap = session->font();
@@ -143,9 +141,11 @@ void UiTestDetailPage::updateStyles() {
 		.arg(border)         // %8
 		.arg(textHint)       // %9
 		.arg(sizeTitle);
+
 	// scrollArea_->setFrameShape(QFrame::NoFrame);
 	// scrollArea_->setStyleSheet(lstr("QScrollArea { background: %2; border-color: %3; }")
 	// 	.arg(background).arg(surface).arg(border));
+
 	scrollContent_->setStyleSheet(lstr("background: %1; border-color: %2; ").arg(surface).arg(border));
 
 	this->setStyleSheet(qss);

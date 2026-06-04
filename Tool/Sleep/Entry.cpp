@@ -23,6 +23,7 @@ static auto uiSession() noexcept { return UiSession::instance(); }
 ToolSleep::ToolSleep()
     : Module(QML_MODULE_NAME, QML_MODULE_MAJOR, QML_MODULE_MINOR)
 {
+    
     auto ui = uiSession();
     auto uitest = UITestModule::instance();
     this->detailCards_ = new SleepDashboardWidget;
@@ -43,10 +44,15 @@ ToolSleep::ToolSleep()
             }
         });
     });
-    connect(uitest, &UITestModule::openingDetailPage, this, [uitest, this](int) {
-        uitest->detailPage()->appendWidget(this->detailCards_);
+    connect(uitest, &UITestModule::openingDetailPage, this, [uitest, this](int, QString identifier) {
+        auto card = new SleepDashboardWidget();
+        card->setObjectName("SleepDashboardWidget");
+        card->loadRecord(identifier);
+        uitest->detailPage()->appendWidget(card);
     });
-
+    connect(uitest, &UITestModule::closeDetailPage, this, [uitest, this](int, QString identifier) {
+        // detailCards_->stopRecording();
+    });
     auto dv = DeviceSession::instance();
 }
 
